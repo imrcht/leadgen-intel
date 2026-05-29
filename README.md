@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LeadGen Intel — Lead Generation Intelligence Platform
 
-## Getting Started
+A production-ready SaaS platform for discovering businesses and professionals in any geographic area, generating detailed lead reports with AI-powered scoring.
 
-First, run the development server:
+## Features
+
+- 🔍 **Multi-Source Lead Discovery** — Google Places API with fallback demo mode
+- 🌐 **Website Crawling & Enrichment** — Extract emails, social profiles, contact info
+- 🧠 **AI Lead Scoring** — 0-100 score based on 6 weighted factors
+- 📊 **Rich Dashboard** — Stats, charts, and recent search activity
+- 📋 **Grid & Table Views** — Multiple ways to browse leads
+- 📥 **Export** — CSV and JSON export with all lead fields
+- 🔎 **Advanced Filters** — By rating, reviews, contact availability
+- 📱 **Responsive Design** — Beautiful dark theme with glassmorphism
+- 🔄 **Search History** — View, revisit, and re-export past searches
+- ⚡ **Real-time Progress** — Live search progress tracking
+
+## Quick Start
 
 ```bash
+cd app-frontend
+cp .env.example .env.local
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Mode
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The platform works **out of the box** without any API keys. It generates realistic demo data for:
+- Dentists, Restaurants, Real Estate Agents, Accountants, Interior Designers
+- And any custom business category with AI-generated sample businesses
 
-## Learn More
+To enable live Google Places data, add your API key to `.env.local`:
 
-To learn more about Next.js, take a look at the following resources:
+```
+GOOGLE_PLACES_API_KEY=your_key_here
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/                    # Next.js 15 App Router
+│   ├── page.tsx           # Dashboard
+│   ├── search/            # New Search
+│   ├── results/[id]/      # Search Results
+│   ├── history/           # Search History
+│   ├── settings/          # Settings & API Keys
+│   └── api/               # API Routes
+│       └── searches/      # Search CRUD + Export
+├── components/
+│   ├── layout/            # AppShell, Sidebar
+│   ├── leads/             # LeadCard, LeadTable, LeadDetail, LeadScoreRing
+│   └── search/            # SearchForm
+└── lib/
+    ├── services/          # Business logic
+    │   ├── google-places.ts      # Google Places API + demo data
+    │   ├── web-crawler.ts        # Website crawling & email extraction
+    │   ├── search-orchestrator.ts # Search pipeline coordinator
+    │   ├── scoring-engine.ts     # AI lead scoring
+    │   └── export-service.ts     # CSV/JSON export
+    └── types/             # TypeScript definitions
+```
 
-## Deploy on Vercel
+## API Routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/searches` | Create new search job |
+| GET | `/api/searches` | List all search jobs |
+| GET | `/api/searches/:id` | Get search job details |
+| GET | `/api/searches/:id/results` | Get search results |
+| POST | `/api/searches/:id/export` | Export results (CSV/JSON) |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Lead Scoring
+
+| Factor | Weight | Max Points |
+|--------|--------|------------|
+| Website Exists | 20% | 20 |
+| Email Found | 25% | 25 |
+| Phone Found | 15% | 15 |
+| Rating ≥ 4.0 | 15% | 15 |
+| Reviews ≥ 50 | 15% | 15 |
+| Social Profiles | 10% | 10 |
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **Icons**: Lucide React
+- **Fonts**: Inter + JetBrains Mono
+
+## Phase 2 (Planned)
+
+- [ ] Supabase PostgreSQL database persistence
+- [ ] Supabase Auth (Admin + User roles)
+- [ ] Stripe billing integration
+- [ ] BullMQ job queue for async processing
+- [ ] PDF export
+- [ ] Excel export
+- [ ] Public directory adapters (Yelp, Yellow Pages, etc.)
+- [ ] Webhook notifications
