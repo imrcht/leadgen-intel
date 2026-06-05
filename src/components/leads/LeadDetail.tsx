@@ -20,6 +20,8 @@ import {
   XCircle,
   Copy,
   Check,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -38,6 +40,33 @@ const socialIcons: Record<string, React.ElementType> = {
 
 export default function LeadDetail({ lead, onClose }: LeadDetailProps) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const analyzeLead = async () => {
+    setIsAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const response = await fetch('/api/analyze-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysisData(data.analysis);
+      } else {
+        const errorData = await response.json();
+        setAnalysisError(errorData.error || 'Failed to fetch analysis');
+      }
+    } catch (error) {
+      console.error('Failed to analyze lead:', error);
+      setAnalysisError('An unexpected error occurred while analyzing the lead');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -281,30 +310,83 @@ export default function LeadDetail({ lead, onClose }: LeadDetailProps) {
               </section>
             )}
 
+          {/* AI Analysis Results */}
+          {analysisError && (
+            <div className="p-4 rounded-xl bg-danger-500/10 border border-danger-500/20 text-danger-400 text-sm">
+              <p className="font-semibold mb-1">Analysis Failed</p>
+              <p>{analysisError}</p>
+              {analysisError.includes('OpenAI API key not configured') && (
+                <p className="mt-2 text-xs opacity-80">Please add your full OPENAI_API_KEY to .env.local</p>
+              )}
+            </div>
+          )}
+          
+          {analysisData && (
+            <section className="animate-fade-in">
+              <h3 className="text-sm font-semibold text-accent-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI Intelligence Report
+              </h3>
+              <div className="space-y-3">
+                <div className="p-4 rounded-xl bg-gradient-to-br from-surface-800/50 to-surface-800/20 border border-surface-700/50">
+                  <h4 className="text-sm font-medium text-surface-200 mb-1">Company Analysis</h4>
+                  <p className="text-sm text-surface-400 leading-relaxed">{analysisData.companyAnalysis}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-surface-800/50 to-surface-800/20 border border-surface-700/50">
+                  <h4 className="text-sm font-medium text-surface-200 mb-1">Website Rating & Quality</h4>
+                  <p className="text-sm text-surface-400 leading-relaxed">{analysisData.websiteRating}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-gradient-to-br from-surface-800/50 to-surface-800/20 border border-surface-700/50">
+                  <h4 className="text-sm font-medium text-surface-200 mb-1">Opportunity for Agency</h4>
+                  <p className="text-sm text-surface-400 leading-relaxed">{analysisData.opportunityAnalysis}</p>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-4 border-t border-surface-800/50">
-            {lead.googleMapsUrl && (
-              <a
-                href={lead.googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 border border-primary-500/20 transition-all text-sm font-medium"
-              >
-                <MapPin className="w-4 h-4" />
-                Open in Maps
-              </a>
-            )}
-            {lead.website && (
-              <a
-                href={lead.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:bg-surface-700 border border-surface-700/30 transition-all text-sm font-medium"
-              >
-                <Globe className="w-4 h-4" />
-                Visit Website
-              </a>
-            )}
+          <div className="flex flex-col gap-3 pt-4 border-t border-surface-800/50">
+            <div className="flex items-center gap-3">
+              {lead.googleMapsUrl && (
+                <a
+                  href={lead.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 border border-primary-500/20 transition-all text-sm font-medium"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Open in Maps
+                </a>
+              )}
+              {lead.website && (
+                <a
+                  href={lead.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-800/60 text-surface-300 hover:bg-surface-700 border border-surface-700/30 transition-all text-sm font-medium"
+                >
+                  <Globe className="w-4 h-4" />
+                  Visit Website
+                </a>
+              )}
+            </div>
+            <button
+              onClick={analyzeLead}
+              disabled={isAnalyzing}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-accent-500 to-primary-500 text-white hover:from-accent-400 hover:to-primary-400 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary-500/20"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing Lead...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  AI Intelligence Analysis
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

@@ -154,7 +154,7 @@ export default function ResultsPage({
             {job.params.radius} mile radius •{' '}
             {job.status === 'completed'
               ? `${totalLeads} leads found`
-              : job.progress.currentStep}
+              : 'In Progress...'}
           </p>
         </div>
 
@@ -191,11 +191,21 @@ export default function ResultsPage({
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-surface-200">
-                {job.progress.currentStep}
+                {job.progress.completionPercentage < 15
+                  ? "Firing up the AI engines 🚀"
+                  : job.progress.completionPercentage < 35
+                  ? "Scouring the web for hidden gems 💎"
+                  : job.progress.completionPercentage < 55
+                  ? "Analyzing business metrics 📊"
+                  : job.progress.completionPercentage < 75
+                  ? "Evaluating lead quality ⭐"
+                  : job.progress.completionPercentage < 90
+                  ? "Cross-referencing contact data 🔍"
+                  : "Polishing the final results ✨"}
               </p>
               <p className="text-xs text-surface-500">
                 {job.progress.totalDiscovered > 0 &&
-                  `${job.progress.totalProcessed}/${job.progress.totalDiscovered} processed`}
+                  `${job.progress.totalProcessed}/${job.progress.totalDiscovered} leads processed`}
               </p>
             </div>
             <span className="text-2xl font-bold gradient-text-primary">
@@ -204,7 +214,7 @@ export default function ResultsPage({
           </div>
           <div className="h-2 rounded-full bg-surface-800 overflow-hidden">
             <div
-              className="h-full rounded-full progress-bar-fill"
+              className="h-full rounded-full progress-bar-fill transition-all duration-500"
               style={{ width: `${job.progress.completionPercentage}%` }}
             />
           </div>
