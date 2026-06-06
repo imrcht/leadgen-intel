@@ -67,6 +67,20 @@ export default function SearchForm() {
         });
 
         const data = await res.json();
+        
+        // Save to localStorage for serverless/Netlify persistence fallback
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`job_${data.id}`, JSON.stringify(data));
+            const existingIds = JSON.parse(localStorage.getItem('search_job_ids') || '[]');
+            if (!existingIds.includes(data.id)) {
+              localStorage.setItem('search_job_ids', JSON.stringify([data.id, ...existingIds]));
+            }
+          } catch (e) {
+            console.warn('Failed to save job to localStorage:', e);
+          }
+        }
+
         router.push(`/results/${data.id}`);
       } catch (err) {
         console.error('Search failed:', err);

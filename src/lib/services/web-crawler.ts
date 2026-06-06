@@ -21,12 +21,12 @@ interface CrawlResult {
   additionalPhones: string[];
 }
 
-export async function crawlBusinessWebsite(url: string): Promise<CrawlResult> {
+export async function crawlBusinessWebsite(url: string, timeoutMs: number = 10000): Promise<CrawlResult> {
   const result: CrawlResult = { emails: [], socialProfiles: {}, additionalPhones: [] };
   try {
     const response = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LeadGenBot/1.0)' },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return result;
     const html = await response.text();

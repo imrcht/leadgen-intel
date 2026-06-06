@@ -50,27 +50,61 @@ export default function ResultsPage({
       if (res.ok) {
         const data = await res.json();
         setJob(data);
+        // Save updated job to localStorage
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(`job_${id}`, JSON.stringify(data));
+            const existingIds = JSON.parse(localStorage.getItem('search_job_ids') || '[]');
+            if (!existingIds.includes(id)) {
+              localStorage.setItem('search_job_ids', JSON.stringify([id, ...existingIds]));
+            }
+          } catch (e) {
+            console.warn('Failed to cache job in localStorage:', e);
+          }
+        }
+      } else if (res.status === 404) {
+        // Fallback to localStorage if 404 (common on serverless cold starts / wipes)
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem(`job_${id}`);
+          if (cached) {
+            setJob(JSON.parse(cached));
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch job:', err);
+      // Fallback to localStorage on network errors
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`job_${id}`);
+        if (cached) {
+          setJob(JSON.parse(cached));
+        }
+      }
     }
   }, [id]);
 
   useEffect(() => {
+    // Attempt to load from cache immediately for instant render
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`job_${id}`);
+      if (cached) {
+        setJob(JSON.parse(cached));
+      }
+    }
+
     fetchJob();
+
+    // If job is already complete or failed, don't set up the interval polling
+    if (job?.status === 'completed' || job?.status === 'failed') {
+      return;
+    }
+
     const interval = setInterval(() => {
       fetchJob();
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [fetchJob]);
-
-  // Stop polling when completed
-  useEffect(() => {
-    if (job?.status === 'completed' || job?.status === 'failed') {
-      // no-op, interval will keep running but job won't change
-    }
-  }, [job?.status]);
+  }, [fetchJob, id, job?.status]);
 
   const handleExport = async (format: 'csv' | 'json') => {
     setIsExporting(true);

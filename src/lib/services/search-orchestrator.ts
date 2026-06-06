@@ -29,7 +29,7 @@ export function getAllSearchJobs(): SearchJob[] {
   );
 }
 
-export async function createSearchJob(params: SearchParams): Promise<SearchJob> {
+export async function createSearchJob(params: SearchParams, sync: boolean = false): Promise<SearchJob> {
   const id = generateId();
   const job: SearchJob = {
     id,
@@ -48,11 +48,23 @@ export async function createSearchJob(params: SearchParams): Promise<SearchJob> 
 
   searchJobs.set(id, job);
 
-  // Run the pipeline (non-blocking)
-  runSearchPipeline(job).catch((err) => {
-    job.status = 'failed';
-    job.error = err.message;
-  });
+  const isServerless = !!(process.env.NETLIFY || process.env.VERCEL || process.env.LAMBDA_TASK_ROOT);
+
+  if (sync || isServerless) {
+    // Run the pipeline synchronously to prevent serverless function termination
+    try {
+      await runSearchPipeline(job);
+    } catch (err) {
+      job.status = 'failed';
+      job.error = err instanceof Error ? err.message : String(err);
+    }
+  } else {
+    // Run the pipeline (non-blocking)
+    runSearchPipeline(job).catch((err) => {
+      job.status = 'failed';
+      job.error = err.message;
+    });
+  }
 
   return job;
 }
@@ -76,19 +88,22 @@ async function runSearchPipeline(job: SearchJob): Promise<void> {
     job.progress.completionPercentage = 20;
     job.progress.currentStep = `Found ${rawLeads.length} businesses. Processing...`;
 
-    // Step 2: Enrich each lead
-    const enrichedLeads: Lead[] = [];
+    // Step 2: Enrich each lead in parallel
+    const isServerless = !!(process.env.NETLIFY || process.env.VERCEL || process.env.LAMBDA_TASK_ROOT);
+    
+    // Limit crawling in serverless environments to prevent timeouts
+    let crawlCount = 0;
+    const maxCrawls = isServerless ? 8 : 20;
+    const timeoutMs = isServerless ? 3000 : 10000;
 
-    for (let i = 0; i < rawLeads.length; i++) {
-      let lead = rawLeads[i];
-      job.progress.currentStep = `Processing ${lead.businessName}... (${i + 1}/${rawLeads.length})`;
-      job.progress.totalProcessed = i + 1;
-      job.progress.completionPercentage = 20 + Math.round((i / rawLeads.length) * 60);
-
-      // Step 2a: Crawl website if available
-      if (lead.website && lead.dataSource !== 'demo') {
+    const enrichmentPromises = rawLeads.map(async (rawLead) => {
+      let lead = { ...rawLead };
+      const shouldCrawl = lead.website && lead.dataSource !== 'demo' && crawlCount < maxCrawls;
+      
+      if (shouldCrawl) {
+        crawlCount++;
         try {
-          const crawlResult = await crawlBusinessWebsite(lead.website);
+          const crawlResult = await crawlBusinessWebsite(lead.website!, timeoutMs);
           lead = enrichLeadWithCrawlData(lead, crawlResult);
           job.progress.totalEnriched++;
         } catch {
@@ -97,6 +112,9 @@ async function runSearchPipeline(job: SearchJob): Promise<void> {
       } else if (lead.dataSource === 'demo') {
         // Demo leads are already enriched
         job.progress.totalEnriched++;
+      } else if (lead.website) {
+        // Skipped crawling due to serverless limits
+        lead.enrichmentStatus = 'partial';
       }
 
       // Step 2b: Calculate lead score
@@ -104,8 +122,13 @@ async function runSearchPipeline(job: SearchJob): Promise<void> {
       lead.leadScore = scoreBreakdown.totalScore;
       lead.scoreBreakdown = scoreBreakdown;
 
-      enrichedLeads.push(lead as Lead);
-    }
+      job.progress.totalProcessed++;
+      job.progress.completionPercentage = 20 + Math.round((job.progress.totalProcessed / rawLeads.length) * 60);
+
+      return lead as Lead;
+    });
+
+    const enrichedLeads = await Promise.all(enrichmentPromises);
 
     // Step 3: Sort by lead score (descending)
     enrichedLeads.sort((a, b) => b.leadScore - a.leadScore);

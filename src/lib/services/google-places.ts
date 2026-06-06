@@ -98,10 +98,8 @@ export async function searchGooglePlaces(
       nextPageToken = pageData.next_page_token || null;
     }
 
-    // Step 3: Get details for each place
-    const leads: Partial<Lead>[] = [];
-
-    for (const place of allResults) {
+    // Step 3: Get details for each place in parallel
+    const detailPromises = allResults.map(async (place) => {
       try {
         const detailRes = await fetch(
           `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,url,rating,user_ratings_total,opening_hours,business_status&key=${apiKey}`
@@ -148,11 +146,10 @@ export async function searchGooglePlaces(
           discoveredAt: new Date().toISOString(),
         };
 
-        leads.push(lead);
+        return lead;
       } catch (err) {
         console.error(`[Google Places] Error fetching details for ${place.name}:`, err);
-        // Still add with basic info
-        leads.push({
+        const fallbackLead: Partial<Lead> = {
           id: place.place_id,
           businessName: place.name,
           category: params.category,
@@ -167,10 +164,12 @@ export async function searchGooglePlaces(
           enrichmentStatus: 'failed',
           dataSource: 'google_places',
           discoveredAt: new Date().toISOString(),
-        });
+        };
+        return fallbackLead;
       }
-    }
+    });
 
+    const leads = await Promise.all(detailPromises);
     return leads;
   } catch (err) {
     console.error('[Google Places] Search failed, falling back to demo data:', err);

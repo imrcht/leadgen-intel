@@ -25,15 +25,42 @@ export default function HistoryPage() {
 
   useEffect(() => {
     async function fetchJobs() {
+      let serverJobs: SearchJob[] = [];
       try {
         const res = await fetch('/api/searches');
         if (res.ok) {
-          const data = await res.json();
-          setJobs(data);
+          serverJobs = await res.json();
         }
       } catch (err) {
         console.error('Failed to fetch search history:', err);
       }
+
+      // Merge with localStorage jobs
+      let localJobs: SearchJob[] = [];
+      if (typeof window !== 'undefined') {
+        try {
+          const localIds = JSON.parse(localStorage.getItem('search_job_ids') || '[]');
+          localJobs = localIds
+            .map((id: string) => {
+              const cached = localStorage.getItem(`job_${id}`);
+              return cached ? JSON.parse(cached) : null;
+            })
+            .filter(Boolean);
+        } catch (e) {
+          console.warn('Failed to parse local job history:', e);
+        }
+      }
+
+      // Merge and remove duplicates (prefer server jobs if they exist, else local)
+      const jobMap = new Map<string, SearchJob>();
+      localJobs.forEach((job) => jobMap.set(job.id, job));
+      serverJobs.forEach((job) => jobMap.set(job.id, job));
+
+      const mergedJobs = Array.from(jobMap.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setJobs(mergedJobs);
       setLoading(false);
     }
     fetchJobs();
